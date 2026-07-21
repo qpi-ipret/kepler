@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Kepler 방정식 수치해석과 실제 천체 궤도 검증을 위한 인터랙티브 계산물리학 웹 실험실" />
+  <title>Kepler Orbit Lab</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">K</div>
+      <div><h1>Kepler Orbit Lab</h1><p>Kepler 방정식의 수치해석 · 궤도 시각화 · 물리 법칙 검증</p></div>
+    </div>
+    <div class="header-actions">
+      <button class="ghost-btn" id="themeToggle" type="button">◐</button>
+      <a class="ghost-btn link-btn" href="#about">모형의 한계</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero card">
+      <div>
+        <span class="eyebrow">AP 일반물리학 후속 탐구</span>
+        <h2>시간에 비례하는 것은 <em>진근점이각</em>이 아니라 <em>평균근점이각</em>이다.</h2>
+        <p>평균근점이각 M을 일정하게 증가시키고 초월방정식 M = E − e sin E를 수치적으로 풀어야 타원 궤도에서의 비균일한 속도와 Kepler 제2법칙이 함께 재현된다.</p>
+      </div>
+      <div class="hero-equation"><div>M = E − e sin E</div><small>Newton–Raphson + bisection fallback</small></div>
+    </section>
+
+    <nav class="tabs" aria-label="주요 기능">
+      <button class="tab active" data-tab="orbit">01 궤도 시뮬레이터</button>
+      <button class="tab" data-tab="solver">02 방정식 풀이</button>
+      <button class="tab" data-tab="validation">03 물리 검증</button>
+      <button class="tab" data-tab="analysis">04 수렴성 분석</button>
+    </nav>
+
+    <section class="panel active" id="orbitPanel">
+      <div class="layout two-col">
+        <aside class="card controls-card">
+          <div class="section-heading"><div><span class="eyebrow">INPUT</span><h3>천체와 모형 설정</h3></div><span class="status-badge ok" id="orbitStatus">정상</span></div>
+          <label>천체 선택<select id="bodySelect"><option value="earth">지구</option><option value="mercury">수성</option><option value="mars">화성</option><option value="halley">1P/Halley</option><option value="custom">사용자 정의</option></select></label>
+          <div class="input-grid">
+            <label>장반경 a (AU)<input id="semiMajorInput" type="number" min="0.01" step="0.001" /></label>
+            <label>이심률 e<input id="eccInput" type="number" min="0" max="0.9999" step="0.0001" /></label>
+            <label>공전주기 T (day)<input id="periodInput" type="number" min="0.01" step="0.001" /></label>
+            <label>중심천체 질량 (M☉)<input id="centralMassInput" type="number" min="0.001" step="0.001" value="1" /></label>
+          </div>
+          <label>시간 <span id="timeLabel">0.00 day</span><input id="timeSlider" type="range" min="0" max="1000" value="0" /></label>
+          <div class="playback">
+            <button class="primary-btn" id="playBtn" type="button">▶ 재생</button>
+            <button class="secondary-btn" id="resetBtn" type="button">↺ 초기화</button>
+            <label class="speed">속도<select id="speedSelect"><option value="0.2">0.2×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="5">5×</option></select></label>
+          </div>
+          <fieldset><legend>표시 옵션</legend><label class="check"><input id="showArea" type="checkbox" checked /> 동일 시간 면적 구간</label><label class="check"><input id="showVelocity" type="checkbox" checked /> 속도 벡터</label></fieldset>
+          <div class="source-note">행성 궤도요소는 JPL의 평균 궤도요소를 바탕으로 한 근사값이며, 정밀 천체력(ephemeris)이 아니다.</div>
+        </aside>
+
+        <div class="stack">
+          <section class="card canvas-card">
+            <div class="section-heading"><div><span class="eyebrow">ORBIT</span><h3 id="orbitTitle">지구의 2체 궤도</h3></div><div class="legend"><span><i class="dot sun"></i>중심천체</span><span><i class="dot body"></i>천체</span><span><i class="line orbit"></i>궤도</span></div></div>
+            <canvas id="orbitCanvas" width="960" height="600"></canvas>
+          </section>
+          <section class="metrics-grid">
+            <article class="metric card"><span>M 평균근점이각</span><strong id="metricM">0</strong><small>rad</small></article>
+            <article class="metric card"><span>E 편심근점이각</span><strong id="metricE">0</strong><small>rad</small></article>
+            <article class="metric card"><span>ν 진근점이각</span><strong id="metricNu">0</strong><small>rad</small></article>
+            <article class="metric card"><span>r 거리</span><strong id="metricR">0</strong><small>AU</small></article>
+            <article class="metric card"><span>v 속력</span><strong id="metricV">0</strong><small>km/s</small></article>
+            <article class="metric card"><span>반복 횟수</span><strong id="metricIterations">0</strong><small>회</small></article>
+            <article class="metric card"><span>Kepler 잔차</span><strong id="metricResidual">0</strong><small>rad</small></article>
+            <article class="metric card"><span>좌표 교차오차</span><strong id="metricCoordError">0</strong><small>AU</small></article>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="solverPanel">
+      <div class="layout two-col">
+        <aside class="card controls-card">
+          <div class="section-heading"><div><span class="eyebrow">NUMERICAL SOLVER</span><h3>Kepler 방정식 직접 풀기</h3></div><span class="status-badge" id="solverStatus">대기</span></div>
+          <label>이심률 e<input id="solverE" type="range" min="0" max="0.999" step="0.001" value="0.8" /><output id="solverEOut">0.800</output></label>
+          <label>평균근점이각 M<input id="solverM" type="range" min="0" max="6.283185307179586" step="0.001" value="0.2" /><output id="solverMOut">0.200 rad</output></label>
+          <label>초기값 전략<select id="initialStrategy"><option value="mean">E₀ = M</option><option value="pi">E₀ = π</option><option value="adaptive" selected>조건부 초기값</option><option value="offset">부호 보정 초기값</option></select></label>
+          <div class="input-grid"><label>허용오차<select id="toleranceSelect"><option value="1e-8">10⁻⁸</option><option value="1e-10">10⁻¹⁰</option><option value="1e-12" selected>10⁻¹²</option><option value="1e-14">10⁻¹⁴</option></select></label><label>최대 반복<input id="maxIterInput" type="number" min="3" max="100" value="30" /></label></div>
+          <label class="check"><input id="fallbackCheck" type="checkbox" checked /> Newton 실패 시 이분법 사용</label>
+          <button class="primary-btn wide" id="solveBtn" type="button">계산 실행</button>
+          <div class="callout"><strong>관찰 포인트</strong><p>e→1, M→0 부근에서는 1−e cos E가 작아져 Newton 보정량이 커질 수 있다. 초기값 전략과 fallback의 효과를 비교해 보자.</p></div>
+        </aside>
+        <div class="stack">
+          <section class="card padded"><div class="section-heading"><div><span class="eyebrow">ITERATION TRACE</span><h3>반복 과정</h3></div><div class="solver-summary" id="solverSummary">계산 전</div></div><div class="table-wrap"><table><thead><tr><th>n</th><th>Eₙ</th><th>f(Eₙ)</th><th>ΔE</th><th>방법</th></tr></thead><tbody id="iterationBody"></tbody></table></div></section>
+          <section class="card padded"><div class="section-heading"><div><span class="eyebrow">RESIDUAL</span><h3>잔차 감소</h3></div></div><canvas id="residualCanvas" width="960" height="320"></canvas></section>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="validationPanel">
+      <div class="card validation-header"><div><span class="eyebrow">PHYSICS VALIDATION</span><h3>계산된 궤도가 물리 법칙을 만족하는가?</h3><p>정확한 궤도 해를 시간 간격으로 샘플링하여 면적속도·에너지·각운동량의 수치 변동을 측정한다.</p></div><div class="validation-actions"><label>표본 수<select id="sampleCount"><option value="60">60</option><option value="120">120</option><option value="360" selected>360</option><option value="720">720</option><option value="1440">1440</option></select></label><button class="primary-btn" id="runValidationBtn">검증 실행</button><button class="secondary-btn" id="downloadCsvBtn">CSV 저장</button></div></div>
+      <section class="validation-metrics"><article class="card metric large"><span>면적속도 변동계수</span><strong id="areaCv">—</strong><small>삼각형 근사</small></article><article class="card metric large"><span>에너지 최대 상대편차</span><strong id="energyError">—</strong><small>vis-viva 검증</small></article><article class="card metric large"><span>각운동량 최대 상대편차</span><strong id="momentumError">—</strong><small>r × v</small></article><article class="card metric large"><span>제3법칙 주기 오차</span><strong id="periodError">—</strong><small>입력 T vs 계산 T</small></article></section>
+      <div class="chart-grid"><section class="card chart-card"><h3>동일 시간 구간의 면적속도</h3><canvas id="areaChart" width="760" height="360"></canvas></section><section class="card chart-card"><h3>비역학적 에너지 상대편차</h3><canvas id="energyChart" width="760" height="360"></canvas></section><section class="card chart-card"><h3>비각운동량 상대편차</h3><canvas id="momentumChart" width="760" height="360"></canvas></section><section class="card chart-card"><h3>시간 간격에 따른 면적 근사 수렴</h3><canvas id="convergenceChart" width="760" height="360"></canvas></section></div>
+    </section>
+
+    <section class="panel" id="analysisPanel">
+      <div class="card analysis-header"><div><span class="eyebrow">CONVERGENCE ANALYSIS</span><h3>이심률과 평균근점이각에 따른 Newton 수렴성</h3><p>각 격자점에서 Kepler 방정식을 풀어 반복 횟수와 fallback 사용 여부를 기록한다.</p></div><div class="analysis-actions"><label>초기값 전략<select id="heatmapStrategy"><option value="mean">E₀=M</option><option value="pi">E₀=π</option><option value="adaptive" selected>조건부 초기값</option><option value="offset">부호 보정 초기값</option></select></label><button class="primary-btn" id="runAnalysisBtn">분석 실행</button></div></div>
+      <div class="layout analysis-layout"><section class="card padded"><div class="section-heading"><div><span class="eyebrow">HEATMAP</span><h3>반복 횟수 지도</h3></div><div id="heatmapSummary" class="solver-summary">분석 전</div></div><canvas id="heatmapCanvas" width="960" height="560"></canvas><div class="heatmap-legend"><span>적은 반복</span><div></div><span>많은 반복 / fallback</span></div></section><aside class="card padded"><span class="eyebrow">COMPARISON</span><h3>초기값 전략 비교</h3><div class="table-wrap"><table><thead><tr><th>전략</th><th>평균 반복</th><th>최대 반복</th><th>fallback</th></tr></thead><tbody id="strategyComparisonBody"></tbody></table></div><div class="callout"><strong>해석 기준</strong><p>반복 횟수만 줄이는 것이 목적은 아니다. 최종 잔차가 허용오차 이하이고, 고이심률 영역에서도 실패 없이 유일한 해를 찾는지가 더 중요하다.</p></div></aside></div>
+    </section>
+
+    <section class="card about" id="about"><div><span class="eyebrow">MODEL SCOPE</span><h3>이 사이트가 보여주는 것과 보여주지 않는 것</h3></div><div class="about-grid"><article><h4>포함</h4><p>이상적인 2체 문제, 고정된 타원 궤도, 0≤e&lt;1, Kepler 방정식의 수치해, 보존량 검증.</p></article><article><h4>제외</h4><p>다른 천체의 섭동, 세차, 상대론 보정, 3차원 궤도요소, 정밀 천체력 예측.</p></article><article><h4>데이터</h4><p>행성은 JPL 평균 궤도요소의 근사값, Halley는 NASA 공개 주기와 궤도요소 근사값을 사용.</p></article></div></section>
+  </main>
+
+  <footer><p>Kepler Orbit Lab · AP 일반물리학 계산물리 탐구</p><p>참고: NASA Kepler 법칙 자료, JPL Solar System Dynamics 평균 궤도요소</p></footer>
+  <script src="app.js"></script>
+</body>
+</html>
